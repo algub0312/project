@@ -1,0 +1,46 @@
+services:
+  scheduler:
+    build: .
+    container_name: scheduler-service
+    restart: unless-stopped
+    ports:
+      - "8095:8000"
+    environment:
+      # Desk API configuration
+      DESK_API_BASE_URL: "http://desk-integration-service:8000/api/v2"
+      DESK_API_KEY: "${DESK_API_KEY:-test-api-key}"
+      DESK_API_KEY_IN_PATH: "false"
+      DESK_API_TIMEOUT_SECONDS: "10"
+      
+      # RabbitMQ configuration
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: "guest"
+      RABBITMQ_PASSWORD: "guest"
+      RABBITMQ_EXCHANGE: "desk_scheduler_events"
+      RABBITMQ_EXCHANGE_TYPE: "topic"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - scheduler-net
+
+  rabbitmq:
+    image: rabbitmq:4.1.4-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "9000:15672"  # Management UI
+      - "5672:5672"   # AMQP port
+    networks:
+      - scheduler-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
+
+networks:
+  scheduler-net:
+    driver: bridge
